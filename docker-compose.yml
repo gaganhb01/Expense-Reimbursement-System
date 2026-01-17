@@ -1,0 +1,111 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: expense_postgres
+    environment:
+      POSTGRES_USER: expense_user
+      POSTGRES_PASSWORD: expense_password
+      POSTGRES_DB: expense_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - expense_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expense_user -d expense_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: expense_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - expense_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: expense_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - expense_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # FastAPI Application
+  app:
+    build: .
+    container_name: expense_app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgresql://expense_user:expense_password@postgres:5432/expense_db
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - expense_network
+    env_file:
+      - .env
+
+  # pgAdmin - Web Database Viewer
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: expense_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@expense.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - expense_network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  pgadmin_data:
+
+networks:
+  expense_network:
+    driver: bridge
