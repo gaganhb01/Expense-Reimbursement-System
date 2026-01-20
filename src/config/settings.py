@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     
     # Google Gemini AI
     GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash-preview"
     
     # File Upload
     MAX_FILE_SIZE: int = 10485760  # 10MB
@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     MAIL_SERVER: str = "smtp.gmail.com"
     MAIL_TLS: bool = True
     MAIL_SSL: bool = False
+
+    # SMTP Configuration - New fields 
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    FROM_EMAIL: str = ""
+    FROM_NAME: str = "Expense Reimbursement System"
     
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000"  # Comma-separated string
